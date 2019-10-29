@@ -100,10 +100,10 @@ def pollTrash() {
     log.debug "pollTrash()"
     if (tagId && aptDong && aptHo) {
 
-        LocalDate today = LocalDate.now()
-        DateTimeFormatter formatter = DateTimeFormatter.ofPattern("yyyyMMdd")
-        log.debug "First day: " + today.withDayOfMonth(1).format(formatter)
-        log.debug "Last day: " + today.withDayOfMonth(today.lengthOfMonth()).format(formatter)
+//        LocalDate today = LocalDate.now()
+//        DateTimeFormatter formatter = DateTimeFormatter.ofPattern("yyyyMMdd")
+//        log.debug "First day: " + today.withDayOfMonth(1).format(formatter)
+//        log.debug "Last day: " + today.withDayOfMonth(today.lengthOfMonth()).format(formatter)
 
         def params = [
             "uri" : "https://www.citywaste.or.kr/portal/status/selectDischargerQuantityQuickMonthNew.do",
@@ -116,8 +116,8 @@ def pollTrash() {
                 tagprintcd : tagId,
                 aptdong : aptDong,
                 apthono : aptHo,
-                startchdate :  today.withDayOfMonth(1).format(formatter),
-                endchdate : today.withDayOfMonth(today.lengthOfMonth()).format(formatter),
+                startchdate :  "20191001",
+                endchdate : "20191031",
                 pageIndex : 1
             ]
         ]

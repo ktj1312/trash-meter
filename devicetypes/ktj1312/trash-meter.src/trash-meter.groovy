@@ -81,15 +81,13 @@ def refresh() {
     log.debug "refresh()"
     unschedule()
 
-    def pollTrashInterval = 60
-
-    if ($settings.pollingInterval != null) {
-        pollTrashInterval = Integer.parseInt($settings.pollingInterval)
+    if ($settings.pollingInterval == null || $settings.pollingInterval == "" ) {
+        $settings.pollingInterval = 60
     }
 
-    log.debug "pollTrash pollingInterval $pollTrashInterval"
+    log.debug "pollTrash pollingInterval $settings.pollingInterval"
 
-    schedule("0 $pollTrashInterval * * * ?", pollTrash)
+    schedule("0 $settings.pollingInterval * * * ?", pollTrash)
 }
 
 def configure() {

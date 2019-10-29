@@ -25,7 +25,7 @@ metadata {
         input "under20Kg", "decimal", title: "20kg 이하 요금", defaultValue: 187, description: "20Kg 이하일 때 KG당 요금 기본값 : 187", required: false
         input "beteen20Kg", "decimal", title: "20kg ~30KG 요금", defaultValue: 280, description: "20Kg ~ 30KG 일 때 KG당 요금 기본값 : 280", required: false
         input "upper30Kg", "decimal", title: "30kg 이상 요금", defaultValue: 327, description: "30Kg 이상일 때 KG당 요금 기본값 : 327", required: false
-        input "pollingInterval", "number", title: "업데이트간격 (in minutes).", description: "업데이트 간격", defaultValue:60, displayDuringSetup: false
+        input name: "refreshRateMin", title: "Update time in every hour", type: "enum", options:[60 : "60", 120 : "120"], defaultValue: "60", displayDuringSetup: true
         input type: "paragraph", element: "paragraph", title: "Version", description: version(), displayDuringSetup: false
     }
 
@@ -74,20 +74,23 @@ def uninstalled() {
 
 def updated() {
     log.debug "updated()"
-    refresh()
+    unschedule()
+
+    def trashPollInterval = 60
+
+    if ($settings != null && $settings.refreshRateMin != null) {
+        trashPollInterval = Integer.parseInt($settings.refreshRateMin)
+    }
+
+    log.debug "trashPollInterval $trashPollInterval"
+
+    schedule("0 0 0/1 * * ?", pollTrash)
 }
 
 def refresh() {
     log.debug "refresh()"
-    unschedule()
 
-    if ($settings.pollingInterval == null || $settings.pollingInterval == "" ) {
-        $settings.pollingInterval = 60
-    }
-
-    log.debug "pollTrash pollingInterval $settings.pollingInterval"
-
-    schedule("0 $settings.pollingInterval * * * ?", pollTrash)
+    pollTrash()
 }
 
 def configure() {
@@ -104,39 +107,44 @@ def pollTrash() {
 //        log.debug "Last day: " + today.withDayOfMonth(today.lengthOfMonth()).format(formatter)
 
         def params = [
-            "uri" : "https://www.citywaste.or.kr/portal/status/selectDischargerQuantityQuickMonthNew.do",
-            "contentType" : 'application/json',
-            "headers" : [
-                "HOST": "www.citywaste.or.kr"
-            ],
-            "requestContentType":"application/json",
-            "body" : [
-                tagprintcd : tagId,
-                aptdong : aptDong,
-                apthono : aptHo,
-                startchdate :  "20191001",
-                endchdate : "20191031",
-                pageIndex : 1
-            ]
+                "uri" : "https://www.citywaste.or.kr/portal/status/selectDischargerQuantityQuickMonthNew.do",
+                "contentType" : 'application/x-www-form-urlencoded',
+                "headers" : [
+                        "Host": "www.citywaste.or.kr",
+                        "Content-Type": "application/x-www-form-urlencoded",
+                        "Accept": "*/*",
+                        "Accept-Encoding": "gzip, deflate",
+                        "Connection": "keep-alive",
+                        "cache-control": "no-cache"
+                ],
+                "body" : [
+                        tagprintcd : tagId,
+                        aptdong : aptDong,
+                        apthono : aptHo,
+                        startchdate :  "20191001",
+                        endchdate : "20191031",
+                        pageIndex : 1
+                ]
         ]
 
         try {
             log.debug "request >> ${params}"
 
             httpPost(params) {resp ->
-                resp.headers.each {
-                    log.debug "${it.name} : ${it.value}"
-                }
+                //resp.headers.each {
+                //   log.debug "${it.name} : ${it.value}"
+                // }
                 // get the contentType of the response
                 log.debug "response contentType: ${resp.contentType}"
                 // get the status code of the response
                 log.debug "response status code: ${resp.status}"
                 if (resp.status == 200) {
                     // get the data from the response body
-                    log.debug "response data: ${resp.data}"
+                    log.debug "resp >> ${resp.data}"
                 }
                 else if (resp.status==429) log.debug "You have exceeded the maximum number of refreshes today"
                 else if (resp.status==500) log.debug "Internal server error"
+                else log.debug resp
             }
         } catch (e) {
             log.error "error: $e"

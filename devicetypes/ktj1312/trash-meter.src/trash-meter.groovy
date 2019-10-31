@@ -30,12 +30,9 @@ metadata {
     }
 
     tiles {
-        valueTile("view", "view", decoration: "flat") {
-            state "view", label:'${currentValue} Kg', icon:'st.Entertainment.entertainment15'
-        }
-        multiAttributeTile(name:"month", type: "generic", width: 6, height: 4, canChangeIcon: true) {
-            tileAttribute ("device.energy", key: "PRIMARY_CONTROL") {
-                attributeState "energy", label:'이번 달\n${currentValue} Kg',  backgroundColors:[
+        multiAttributeTile(name:"trashWeight", type: "generic", width: 6, height: 4) {
+            tileAttribute ("device.trashWeight", key: "PRIMARY_CONTROL") {
+                attributeState "device.trashWeight", label:'이번 달\n${currentValue} Kg',  backgroundColors:[
                         [value: 50, 		color: "#153591"],
                         [value: 100, 	color: "#1e9cbb"],
                         [value: 200, 	color: "#90d2a7"],
@@ -101,10 +98,24 @@ def pollTrash() {
     log.debug "pollTrash()"
     if (tagId && aptDong && aptHo) {
 
-//        LocalDate today = LocalDate.now()
-//        DateTimeFormatter formatter = DateTimeFormatter.ofPattern("yyyyMMdd")
-//        log.debug "First day: " + today.withDayOfMonth(1).format(formatter)
-//        log.debug "Last day: " + today.withDayOfMonth(today.lengthOfMonth()).format(formatter)
+        def sdf = new java.text.SimpleDateFormat("yyyyMMdd")
+        Date now = new Date();
+        Calendar calendar = Calendar.getInstance()
+
+        calendar.setTime(now)
+
+        // cal first day of month
+        calendar.set(Calendar.DAY_OF_MONTH, calendar.getActualMinimum(Calendar.DAY_OF_MONTH))
+        def firstDateStr = sdf.format(calendar.getTime())
+
+        calendar.add(Calendar.MONTH, 1)
+        calendar.set(Calendar.DAY_OF_MONTH, 1)
+        calendar.add(Calendar.DATE, -1)
+
+        def lastDateStr = sdf.format(calendar.getTime())
+
+        log.debug "First day: " + firstDateStr
+        log.debug "Last day: " + lastDateStr
 
         def params = [
                 "uri" : "https://www.citywaste.or.kr/portal/status/selectDischargerQuantityQuickMonthNew.do",
@@ -121,8 +132,8 @@ def pollTrash() {
                         tagprintcd : tagId,
                         aptdong : aptDong,
                         apthono : aptHo,
-                        startchdate :  "20191001",
-                        endchdate : "20191031",
+                        startchdate : firstDateStr ,
+                        endchdate : lastDateStr,
                         pageIndex : 1
                 ]
         ]
@@ -138,10 +149,16 @@ def pollTrash() {
                 log.debug "response contentType: ${resp.contentType}"
                 // get the status code of the response
                 log.debug "response status code: ${resp.status}"
-                if (resp.status == 200) {
+
+                if(resp.status == 200){
                     // get the data from the response body
                     log.debug "resp >> ${resp.data}"
+                    def t = ${resp.data}.replace(":null","")
+                    log.debug "tt >> ${t}"
+                    def results = new groovy.json.JsonSlurper().parseText(${t})
+                    log.debug "re >> ${results}"
                 }
+
                 else if (resp.status==429) log.debug "You have exceeded the maximum number of refreshes today"
                 else if (resp.status==500) log.debug "Internal server error"
                 else log.debug resp
@@ -149,6 +166,10 @@ def pollTrash() {
         } catch (e) {
             log.error "error: $e"
         }
+
+        sendEvent(name: "trashWeight", value: 23)
+        sendEvent(name: "lastCheckin", value: now)
+        sendEvent(name: "charge", value: "1234")
     }
     else log.debug "Missing settings tagId or aptDong or aptHo"
 }

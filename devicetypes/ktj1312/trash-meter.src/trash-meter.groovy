@@ -117,59 +117,90 @@ def pollTrash() {
         log.debug "First day: " + firstDateStr
         log.debug "Last day: " + lastDateStr
 
+        def pageIdx = 1
+
         def params = [
-                "uri" : "https://www.citywaste.or.kr/portal/status/selectDischargerQuantityQuickMonthNew.do",
-                "contentType" : 'application/x-www-form-urlencoded',
-                "headers" : [
-                        "Host": "www.citywaste.or.kr",
-                        "Content-Type": "application/x-www-form-urlencoded",
-                        "Accept": "*/*",
-                        "Accept-Encoding": "gzip, deflate",
-                        "Connection": "keep-alive",
-                        "cache-control": "no-cache"
-                ],
-                "body" : [
-                        tagprintcd : tagId,
-                        aptdong : aptDong,
-                        apthono : aptHo,
-                        startchdate : firstDateStr ,
-                        endchdate : lastDateStr,
-                        pageIndex : 1
-                ]
+                "uri" : "https://www.citywaste.or.kr/portal/status/selectDischargerQuantityQuickMonthNew.do?tagprintcd=${tagId}&aptdong=${aptDong}&apthono=${aptHo}&startchdate=${firstDateStr}&endchdate=${lastDateStr}&pageIndex=${pageIdx}",
+                "contentType" : 'application/json'
         ]
 
         try {
             log.debug "request >> ${params}"
 
-            httpPost(params) {resp ->
-                //resp.headers.each {
-                //   log.debug "${it.name} : ${it.value}"
-                // }
-                // get the contentType of the response
-                log.debug "response contentType: ${resp.contentType}"
-                // get the status code of the response
-                log.debug "response status code: ${resp.status}"
+            def respMap = getHttpGetJson(params)
 
-                if(resp.status == 200){
-                    // get the data from the response body
-                    log.debug "resp >> ${resp.data}"
-                    def t = ${resp.data}.replace(":null","")
-                    log.debug "tt >> ${t}"
-                    def results = new groovy.json.JsonSlurper().parseText(${t})
-                    log.debug "re >> ${results}"
+            if(respMap != null){
+                def pages = respMap.paginationInfo.totalPageCount
+
+                log.debug "total pages >> ${pages}"
+
+                def totalQty = 0
+                for(def i = 1 ; i < pages + 1 ; i++){
+                    def lists = respMap.list
+                    for(def j=0;i<lists.size();i++){
+                        totalQty += lists[i].qtyvalue
+
+                        if (pages == 1)
+                            break
+
+                        pageIdx = pageIdx + 1
+
+                        respMap = getHttpGetJson(params)
+                    }
                 }
+                pageIdx = 1
 
-                else if (resp.status==429) log.debug "You have exceeded the maximum number of refreshes today"
-                else if (resp.status==500) log.debug "Internal server error"
-                else log.debug resp
+                //def fare = cal_fare(totalQty)
+                def fare = 0
+
+                sendEvent(name: "lastCheckin", value: now)
+
+                log.debug "weight ${totalQty} fare ${fare}"
+
+                sendEvent(name: "trashWeight", value: totalQty)
+                sendEvent(name: "charge", value: 11120)
+
             }
+            else{
+                log.error "result is null"
+            }
+
+
+
         } catch (e) {
             log.error "error: $e"
         }
 
-        sendEvent(name: "trashWeight", value: 23)
-        sendEvent(name: "lastCheckin", value: now)
-        sendEvent(name: "charge", value: "1234")
+
+
+
     }
     else log.debug "Missing settings tagId or aptDong or aptHo"
+}
+
+private getHttpGetJson(param) {
+    log.debug "getHttpGetJson>> params : ${param}"
+    def jsonMap = null
+    try {
+        httpGet(param) { resp ->
+            log.debug "getHttpGetJson>> resp: ${resp.data}"
+            jsonMap = resp.data
+        }
+    } catch(groovyx.net.http.HttpResponseException e) {
+        log.warn "getHttpGetJson>> HTTP Get Error : ${e}"
+    }
+
+    return jsonMap
+
+}
+
+private cal_fare(weight){
+    log.debug "start cal_fare weight is ${weight} fare late ~20Kg ${under20Kg} 20Kg~30Kg ${beteen20Kg} 30Kg~ ${upper30Kg}"
+
+    def sum = 0
+
+    sum = ${under20Kg} * 20
+
+    log.debug sum
+    return sum
 }

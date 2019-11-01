@@ -25,21 +25,18 @@ metadata {
         input "under20Kg", "decimal", title: "20kg 이하 요금", defaultValue: 187, description: "20Kg 이하일 때 KG당 요금 기본값 : 187", required: false
         input "beteen20Kg", "decimal", title: "20kg ~30KG 요금", defaultValue: 280, description: "20Kg ~ 30KG 일 때 KG당 요금 기본값 : 280", required: false
         input "upper30Kg", "decimal", title: "30kg 이상 요금", defaultValue: 327, description: "30Kg 이상일 때 KG당 요금 기본값 : 327", required: false
-        input name: "refreshRateMin", title: "Update time in every hour", type: "enum", options:[60 : "60", 120 : "120"], defaultValue: "60", displayDuringSetup: true
         input type: "paragraph", element: "paragraph", title: "Version", description: version(), displayDuringSetup: false
     }
 
     tiles {
         multiAttributeTile(name:"trashWeight", type: "generic", width: 6, height: 4) {
-            tileAttribute ("device.trashWeight", key: "PRIMARY_CONTROL") {
-                attributeState "device.trashWeight", label:'이번 달\n${currentValue} Kg',  backgroundColors:[
-                        [value: 50, 		color: "#153591"],
-                        [value: 100, 	color: "#1e9cbb"],
-                        [value: 200, 	color: "#90d2a7"],
-                        [value: 300, 	color: "#44b621"],
-                        [value: 400, 	color: "#f1d801"],
-                        [value: 500, 	color: "#d04e00"],
-                        [value: 600, 	color: "#bc2323"]
+            tileAttribute ("device.weight", key: "PRIMARY_CONTROL") {
+                attributeState "weight", label:'이번 달\n${currentValue} Kg',  backgroundColors:[
+                        [value: 5, 		color: "#76eb99"],
+                        [value: 10, 	color: "#f9e8d3"],
+                        [value: 15, 	color: "#76eb99"],
+                        [value: 20, 	color: "#ff9d46"],
+                        [value: 30, 	color: "#bc2323"]
                 ]
             }
             tileAttribute("device.lastCheckin", key: "SECONDARY_CONTROL") {
@@ -61,8 +58,17 @@ def parse(String description) {
     log.debug "Parsing '${description}'"
 }
 
-def installed() {
+def init(){
+    if (settings.under20Kg == null || settings.under20Kg == "" ) settings.under20Kg = 187
+    if (settings.beteen20Kg == null || settings.beteen20Kg == "" ) settings.beteen20Kg = 280
+    if (settings.upper30Kg == null || settings.upper30Kg == "" ) settings.upper30Kg = 327
+
     refresh()
+    schedule("0 0 0/1 * * ?", pollTrash)
+}
+
+def installed() {
+    init()
 }
 
 def uninstalled() {
@@ -72,16 +78,7 @@ def uninstalled() {
 def updated() {
     log.debug "updated()"
     unschedule()
-
-    def trashPollInterval = 60
-
-    if ($settings != null && $settings.refreshRateMin != null) {
-        trashPollInterval = Integer.parseInt($settings.refreshRateMin)
-    }
-
-    log.debug "trashPollInterval $trashPollInterval"
-
-    schedule("0 0 0/1 * * ?", pollTrash)
+    init()
 }
 
 def refresh() {
@@ -95,11 +92,12 @@ def configure() {
 }
 
 def pollTrash() {
+
     log.debug "pollTrash()"
     if (tagId && aptDong && aptHo) {
 
         def sdf = new java.text.SimpleDateFormat("yyyyMMdd")
-        Date now = new Date();
+        Date now = new Date()
         Calendar calendar = Calendar.getInstance()
 
         calendar.setTime(now)
@@ -124,56 +122,52 @@ def pollTrash() {
                 "contentType" : 'application/json'
         ]
 
+        def fare = 0
+        def totalQty = 0
+
         try {
             log.debug "request >> ${params}"
 
             def respMap = getHttpGetJson(params)
 
             if(respMap != null){
-                def pages = respMap.paginationInfo.totalPageCount
+                if(respMap.totalCnt != 0){
+                    def pages = respMap.paginationInfo.totalPageCount
 
-                log.debug "total pages >> ${pages}"
+                    log.debug "total pages >> ${pages}"
 
-                def totalQty = 0
-                for(def i = 1 ; i < pages + 1 ; i++){
-                    def lists = respMap.list
-                    for(def j=0;i<lists.size();i++){
-                        totalQty += lists[i].qtyvalue
+                    for(def i = 1 ; i < pages + 1 ; i++){
+                        def lists = respMap.list
+                        for(def j=0;i<lists.size();i++){
+                            totalQty += lists[i].qtyvalue
 
-                        if (pages == 1)
-                            break
+                            if (pages == 1)
+                                break
 
-                        pageIdx = pageIdx + 1
+                            pageIdx = pageIdx + 1
 
-                        respMap = getHttpGetJson(params)
+                            respMap = getHttpGetJson(params)
+                        }
                     }
+                    pageIdx = 1
+                }else{
+                    log.debug "no datas at this moment"
                 }
-                pageIdx = 1
-
-                //def fare = cal_fare(totalQty)
-                def fare = 0
-
-                sendEvent(name: "lastCheckin", value: now)
+                fare = cal_fare(totalQty)
 
                 log.debug "weight ${totalQty} fare ${fare}"
 
-                sendEvent(name: "trashWeight", value: totalQty)
-                sendEvent(name: "charge", value: 11120)
-
+                sendEvent(name: "lastCheckin", value: now.format("yyyy MMM dd EEE h:mm:ss a", location.timeZone))
+                sendEvent(name: "weight", value: totalQty)
+                sendEvent(name: "charge", value: fare)
+            }else{
+                log.warn "retry to pollTrash cause server error try after 10 sec"
+                runIn(10, pollTrash)
+                //pollTrash()
             }
-            else{
-                log.error "result is null"
-            }
-
-
-
         } catch (e) {
-            log.error "error: $e"
+            log.error "failed to update $e"
         }
-
-
-
-
     }
     else log.debug "Missing settings tagId or aptDong or aptHo"
 }
@@ -198,9 +192,23 @@ private cal_fare(weight){
     log.debug "start cal_fare weight is ${weight} fare late ~20Kg ${under20Kg} 20Kg~30Kg ${beteen20Kg} 30Kg~ ${upper30Kg}"
 
     def sum = 0
+    if (weight < 20){
+        sum = settings.under20Kg * weight
+    }
+    else{
+        sum = settings.under20Kg * 20
+    }
 
-    sum = ${under20Kg} * 20
-
-    log.debug sum
+    if (weight > 20){
+        if (weight < 30){
+            sum += settings.beteen20Kg * (weight - 20)
+        }
+        else{
+            sum += settings.beteen20Kg * 10
+        }
+    }
+    if (weight > 30){
+        sum += settings.upper30Kg * (weight - 30)
+    }
     return sum
 }

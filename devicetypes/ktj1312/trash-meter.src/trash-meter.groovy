@@ -9,6 +9,8 @@ metadata {
         capability "Sensor"
         capability "Refresh"
 
+        attribute "trashWeight", "number"
+        attribute "trashFare", "number"
         attribute "lastCheckin", "Date"
 
         command "refresh"

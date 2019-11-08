@@ -141,8 +141,9 @@ def pollTrash() {
 
                     for(def i = 1 ; i < pages + 1 ; i++){
                         def lists = respMap.list
-                        for(def j=0;i<lists.size();i++){
-                            totalQty += lists[i].qtyvalue
+
+                        for(def j=0;j<lists.size();j++){
+                            totalQty += lists[j].qtyvalue
                         }
                         if (pages == 1)
                             break

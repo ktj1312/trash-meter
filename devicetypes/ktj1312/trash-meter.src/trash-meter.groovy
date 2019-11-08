@@ -164,7 +164,6 @@ def pollTrash() {
 
                 sendEvent(name: "lastCheckin", value: now.format("yyyy MMM dd EEE h:mm:ss a", location.timeZone))
                 sendEvent(name: "weight", value: totalQty)
-                sendEvent(name: "view", value: totalQty)
                 sendEvent(name: "charge", value: fare)
             }else{
                 log.warn "retry to pollTrash cause server error try after 10 sec"

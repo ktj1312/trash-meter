@@ -34,7 +34,7 @@ metadata {
     tiles {
         multiAttributeTile(name:"trashWeight", type: "generic", width: 6, height: 4) {
             tileAttribute ("device.weight", key: "PRIMARY_CONTROL") {
-                attributeState "weight", label:'이번 달\n${currentValue} Kg',  backgroundColors:[
+                attributeState "weight", label:'${currentValue} Kg\n이번달',  backgroundColors:[
                         [value: 5, 		color: "#DAF7A6"],
                         [value: 10, 	color: "#FFC300"],
                         [value: 15, 	color: "#FF5733"],
@@ -53,6 +53,8 @@ metadata {
         valueTile("refresh", "device.refresh", width: 2, height : 2, decoration: "flat") {
             state "refresh", label:'REFRESH', action: 'refresh.refresh'
         }
+
+        main (["trashWeight"])
     }
 }
 
@@ -162,6 +164,7 @@ def pollTrash() {
 
                 sendEvent(name: "lastCheckin", value: now.format("yyyy MMM dd EEE h:mm:ss a", location.timeZone))
                 sendEvent(name: "weight", value: totalQty)
+                sendEvent(name: "view", value: totalQty)
                 sendEvent(name: "charge", value: fare)
             }else{
                 log.warn "retry to pollTrash cause server error try after 10 sec"

@@ -1,6 +1,7 @@
-public static String version() { return "v0.0.1.20191029" }
+public static String version() { return "v0.0.2.20191108" }
 /*
  *	2019/10/29 >>> v0.0.1.20191029 - first version
+ *  2019/11/08 >>> v0.0.2 20191108 - weight bug fix thanks to dokyuim
  */
 
 metadata {
@@ -34,11 +35,11 @@ metadata {
         multiAttributeTile(name:"trashWeight", type: "generic", width: 6, height: 4) {
             tileAttribute ("device.weight", key: "PRIMARY_CONTROL") {
                 attributeState "weight", label:'이번 달\n${currentValue} Kg',  backgroundColors:[
-                        [value: 5, 		color: "#76eb99"],
-                        [value: 10, 	color: "#f9e8d3"],
-                        [value: 15, 	color: "#76eb99"],
-                        [value: 20, 	color: "#ff9d46"],
-                        [value: 30, 	color: "#bc2323"]
+                        [value: 5, 		color: "#DAF7A6"],
+                        [value: 10, 	color: "#FFC300"],
+                        [value: 15, 	color: "#FF5733"],
+                        [value: 20, 	color: "#C70039"],
+                        [value: 30, 	color: "#900C3F"]
                 ]
             }
             tileAttribute("device.lastCheckin", key: "SECONDARY_CONTROL") {
@@ -114,8 +115,8 @@ def pollTrash() {
 
         def lastDateStr = sdf.format(calendar.getTime())
 
-        log.debug "First day: " + firstDateStr
-        log.debug "Last day: " + lastDateStr
+        //log.debug "First day: " + firstDateStr
+        //log.debug "Last day: " + lastDateStr
 
         def pageIdx = 1
 
@@ -142,18 +143,17 @@ def pollTrash() {
                         def lists = respMap.list
                         for(def j=0;i<lists.size();i++){
                             totalQty += lists[i].qtyvalue
-
-                            if (pages == 1)
-                                break
-
-                            pageIdx = pageIdx + 1
-
-                            respMap = getHttpGetJson(params)
                         }
+                        if (pages == 1)
+                            break
+
+                        pageIdx = pageIdx + 1
+
+                        respMap = getHttpGetJson(params)
                     }
                     pageIdx = 1
                 }else{
-                    log.debug "no datas at this moment"
+                    log.debug "there is no data in this month"
                 }
                 fare = cal_fare(totalQty)
 
@@ -171,7 +171,7 @@ def pollTrash() {
             log.error "failed to update $e"
         }
     }
-    else log.debug "Missing settings tagId or aptDong or aptHo"
+    else log.error "Missing settings tagId or aptDong or aptHo"
 }
 
 private getHttpGetJson(param) {
@@ -183,7 +183,7 @@ private getHttpGetJson(param) {
             jsonMap = resp.data
         }
     } catch(groovyx.net.http.HttpResponseException e) {
-        log.warn "getHttpGetJson>> HTTP Get Error : ${e}"
+        log.error "getHttpGetJson>> HTTP Get Error : ${e}"
     }
 
     return jsonMap
@@ -191,7 +191,7 @@ private getHttpGetJson(param) {
 }
 
 private cal_fare(weight){
-    log.debug "start cal_fare weight is ${weight} fare late ~20Kg ${under20Kg} 20Kg~30Kg ${beteen20Kg} 30Kg~ ${upper30Kg}"
+    log.debug "cal_fare weight is ${weight} fare late ~20Kg ${under20Kg} 20Kg~30Kg ${beteen20Kg} 30Kg~ ${upper30Kg}"
 
     def sum = 0
     if (weight < 20){

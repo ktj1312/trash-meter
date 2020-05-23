@@ -1,7 +1,8 @@
-public static String version() { return "v0.0.2.20191108" }
+public static String version() { return "v0.0.3.20200523" }
 /*
  *	2019/10/29 >>> v0.0.1.20191029 - first version
  *  2019/11/08 >>> v0.0.2 20191108 - weight bug fix thanks to dokyuim
+ *  2020/05/23 >>> v0.0.3 20200523 - add displayed option
  */
 
 metadata {
@@ -163,8 +164,8 @@ def pollTrash() {
                 log.debug "weight ${totalQty} fare ${fare}"
 
                 sendEvent(name: "lastCheckin", value: now.format("yyyy MMM dd EEE h:mm:ss a", location.timeZone))
-                sendEvent(name: "weight", value: totalQty)
-                sendEvent(name: "charge", value: fare)
+                sendEvent(name: "weight", value: totalQty, displayed: true)
+                sendEvent(name: "charge", value: fare, displayed: true)
             }else{
                 log.warn "retry to pollTrash cause server error try after 10 sec"
                 runIn(10, pollTrash)
